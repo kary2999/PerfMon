@@ -65,7 +65,11 @@ public struct ShellRunner: CommandRunner {
 /// 一键加速编排。动作的"决定哪些可做"是纯函数；执行通过注入的 runner。
 public final class OptimizationService {
     private let runner: CommandRunner
-    public init(runner: CommandRunner = ShellRunner()) { self.runner = runner }
+    private let selfPID: Int
+    public init(runner: CommandRunner = ShellRunner(), selfPID: Int = Int(getpid())) {
+        self.runner = runner
+        self.selfPID = selfPID
+    }
 
     /// 纯函数：根据当前指标，建议默认勾选的动作集合。
     public static func suggestedActions(_ m: Metrics) -> [BoostAction] {
@@ -81,16 +85,18 @@ public final class OptimizationService {
     public func execute(_ action: BoostAction, killPids: [Int] = []) -> BoostStepResult {
         switch action {
         case .killProcesses:
-            guard !killPids.isEmpty else {
-                return BoostStepResult(action: action, ok: true, message: "未选择进程，跳过")
+            // 防自杀：永不结束 PerfMon 自身进程。
+            let targets = killPids.filter { $0 != selfPID }
+            guard !targets.isEmpty else {
+                return BoostStepResult(action: action, ok: true, message: "无可结束的进程（已排除自身），跳过")
             }
             var killed = 0
-            for pid in killPids {
+            for pid in targets {
                 let (ok, _) = runner.run("/bin/kill", ["\(pid)"])
                 if ok { killed += 1 }
             }
             return BoostStepResult(action: action, ok: killed > 0,
-                                   message: "已结束 \(killed)/\(killPids.count) 个进程")
+                                   message: "已结束 \(killed)/\(targets.count) 个进程")
         case .clearCaches:
             let home = NSHomeDirectory()
             let (ok, _) = runner.run("/bin/sh", ["-c", "rm -rf \(home)/Library/Caches/* 2>/dev/null; echo done"])

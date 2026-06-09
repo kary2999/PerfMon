@@ -14,7 +14,7 @@ final class FloatingWidget {
     private var cancellable: AnyCancellable?
 
     static let fullSize = NSSize(width: 188, height: 188)
-    static let ballSize = NSSize(width: 66, height: 66)
+    static let ballSize = NSSize(width: 44, height: 44)
 
     init(state: AppState) {
         panel = NSPanel(
@@ -90,23 +90,21 @@ struct BallView: View {
     var body: some View {
         let c = Theme.byLoad(state.metrics.cpuPercent)
         ZStack {
-            Circle().stroke(Color.white.opacity(0.15), lineWidth: 5)
+            Circle().stroke(Color.white.opacity(0.15), lineWidth: 3.5)
             Circle()
                 .trim(from: 0, to: min(1, Double(state.metrics.cpuPercent) / 100))
-                .stroke(c, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                .stroke(c, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-            VStack(spacing: 0) {
-                Text("🚀").font(.system(size: 11))
-                Text("\(state.metrics.cpuPercent)%")
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .foregroundColor(c)
-            }
+            Text("\(state.metrics.cpuPercent)")
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .foregroundColor(c)
+                .minimumScaleFactor(0.6)
         }
-        .padding(6)
-        .frame(width: 66, height: 66)
+        .padding(4)
+        .frame(width: 44, height: 44)
         .contentShape(Circle())
         .onTapGesture { onExpand() }
-        .help("点击展开")
+        .help("CPU \(state.metrics.cpuPercent)% · 点击展开")
     }
 }
 

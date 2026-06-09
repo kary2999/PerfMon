@@ -13,6 +13,8 @@ final class MenuBarController {
     init(state: AppState) {
         self.state = state
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // 记住用户用 ⌘-拖动调整后的位置（macOS 无 API 强制置于最右，只能记忆拖动结果）。
+        statusItem.autosaveName = "PerfMonStatusItem"
         if let button = statusItem.button {
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
             button.title = "🚀 --"

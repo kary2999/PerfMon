@@ -35,6 +35,23 @@ final class OptimizationServiceTests: XCTestCase {
         XCTAssertEqual(mock.calls[1].1, ["200"])
     }
 
+    func testKillNeverKillsSelf() {
+        let mock = MockRunner()
+        let svc = OptimizationService(runner: mock, selfPID: 100)
+        let r = svc.execute(.killProcesses, killPids: [100, 200])  // 100 = 自身
+        XCTAssertTrue(r.ok)
+        XCTAssertEqual(mock.calls.count, 1)            // 只 kill 了 200
+        XCTAssertEqual(mock.calls[0].1, ["200"])
+    }
+
+    func testKillOnlySelfSkips() {
+        let mock = MockRunner()
+        let svc = OptimizationService(runner: mock, selfPID: 100)
+        let r = svc.execute(.killProcesses, killPids: [100])       // 只有自身
+        XCTAssertTrue(r.ok)
+        XCTAssertEqual(mock.calls.count, 0)            // 不调用 kill
+    }
+
     func testKillWithNoPidsSkips() {
         let mock = MockRunner()
         let svc = OptimizationService(runner: mock)

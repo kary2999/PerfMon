@@ -11,6 +11,11 @@ final class AppState: ObservableObject {
     private let kit = SensorKit()
     let boost = OptimizationService()
     private var timer: Timer?
+    private var tickCount = 0
+
+    // 采样节流：CPU/内存等轻量项每 2 秒；温度/进程等重量项每 3 个 tick（=6 秒）刷新一次。
+    private let fastInterval: TimeInterval = 2.0
+    private let slowEveryNTicks = 3
 
     /// 结束指定进程（用于进程页）。
     func killProcess(pid: Int) {
@@ -18,14 +23,16 @@ final class AppState: ObservableObject {
     }
 
     func start() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: fastInterval, repeats: true) { [weak self] _ in
             self?.tick()
         }
         tick()
     }
 
     private func tick() {
-        let m = kit.snapshot()
+        let refreshSlow = (tickCount % slowEveryNTicks == 0)
+        tickCount &+= 1
+        let m = kit.snapshot(refreshSlow: refreshSlow)
         metrics = m
         cpuHistory.append(Double(m.cpuPercent))
         if cpuHistory.count > 60 { cpuHistory.removeFirst() }
