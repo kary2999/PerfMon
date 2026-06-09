@@ -8,6 +8,7 @@ public final class SensorKit {
     private let swapProvider = SwapProvider()
     private let sysProvider = SystemProvider()
     private let tempReader = TempReader()
+    private let procProvider = ProcessProvider()
     private var lastTicks: CPUTicks?
 
     public init() {
@@ -30,9 +31,10 @@ public final class SensorKit {
         }
         let sys = sysProvider.current()
         let temps = TempClassifier.classify(tempReader.readAll())
+        let procs = procProvider.top(limit: 8)
 
         return Metrics(cpuPercent: cpu, memPercent: memPct, swapPercent: swapPct,
                        load1: sys.load1, uptimeDays: sys.uptimeDays,
-                       temps: temps, topProcesses: [])
+                       temps: temps, topProcesses: procs)
     }
 }
