@@ -9,6 +9,7 @@ public final class SensorKit {
     private let memProvider = MemoryProvider()
     private let swapProvider = SwapProvider()
     private let sysProvider = SystemProvider()
+    private let pressureProvider = MemoryPressureProvider()
     private let tempReader = TempReader()
     private let procProvider = ProcessProvider()
     private var lastTicks: CPUTicks?
@@ -45,6 +46,7 @@ public final class SensorKit {
 
         return Metrics(cpuPercent: cpu, memPercent: memPct, swapPercent: swapPct,
                        load1: sys.load1, uptimeDays: sys.uptimeDays,
-                       temps: cachedTemps, topProcesses: cachedProcs)
+                       temps: cachedTemps, topProcesses: cachedProcs,
+                       pressure: pressureProvider.current())
     }
 }

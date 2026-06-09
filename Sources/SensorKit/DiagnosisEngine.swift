@@ -21,8 +21,7 @@ public struct Issue: Equatable, Sendable, Identifiable {
 /// 纯函数引擎：输入指标快照，输出问题清单（按严重度排序）。
 public enum DiagnosisEngine {
     // 阈值集中管理，便于调整与测试。
-    static let swapCritical = 80
-    static let memWarning = 85
+    static let swapHigh = 80
     static let cpuWarning = 85
     static let procCritical = 40
     static let uptimeWarningDays = 7
@@ -30,18 +29,29 @@ public enum DiagnosisEngine {
     public static func analyze(_ m: Metrics) -> [Issue] {
         var issues: [Issue] = []
 
-        if m.swapPercent >= swapCritical {
+        // 以「内存压力」为准，而非 Swap 用量。
+        switch m.pressure {
+        case .critical:
             issues.append(Issue(
-                code: "swap_high", severity: .critical,
-                title: "内存耗尽，Swap 已用 \(m.swapPercent)%",
-                detail: "系统在频繁做磁盘交换，这是卡顿和发热的首要原因。建议释放内存或关闭高占用 App。",
+                code: "mem_pressure", severity: .critical,
+                title: "内存压力严重",
+                detail: "系统内存真正吃紧、正在频繁换页，这会导致卡顿发热。建议释放内存或关闭高占用 App。",
                 suggestedAction: "purge"))
-        } else if m.memPercent >= memWarning {
+        case .warning:
             issues.append(Issue(
-                code: "mem_high", severity: .warning,
-                title: "内存占用偏高（\(m.memPercent)%）",
-                detail: "可用内存不多，可能开始压缩/交换。建议释放内存。",
+                code: "mem_pressure", severity: .warning,
+                title: "内存压力偏紧",
+                detail: "可用内存开始紧张。建议释放内存或留意大内存 App。",
                 suggestedAction: "purge"))
+        case .normal:
+            // 压力正常但 Swap 高：这是 macOS 正常机制，给一条"安心"提示，不算问题。
+            if m.swapPercent >= swapHigh {
+                issues.append(Issue(
+                    code: "swap_ok", severity: .info,
+                    title: "Swap 用量较高（\(m.swapPercent)%），但内存压力正常",
+                    detail: "这是 macOS 的正常机制：换出的数据停在磁盘上不影响使用，无需清理（只有重启才会清空）。",
+                    suggestedAction: nil))
+            }
         }
 
         // 单进程高占用

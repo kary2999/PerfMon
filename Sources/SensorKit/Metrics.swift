@@ -17,27 +17,33 @@ public struct Metrics: Equatable, Sendable {
     public var uptimeDays: Int
     public var temps: Temperatures
     public var topProcesses: [ProcessSample]
+    public var pressure: MemoryPressure
 
     public init(cpuPercent: Int, memPercent: Int, swapPercent: Int,
                 load1: Double, uptimeDays: Int, temps: Temperatures,
-                topProcesses: [ProcessSample]) {
+                topProcesses: [ProcessSample],
+                pressure: MemoryPressure = .normal) {
         self.cpuPercent = cpuPercent; self.memPercent = memPercent
         self.swapPercent = swapPercent; self.load1 = load1
         self.uptimeDays = uptimeDays; self.temps = temps
-        self.topProcesses = topProcesses
+        self.topProcesses = topProcesses; self.pressure = pressure
     }
 
     public static let empty = Metrics(cpuPercent: 0, memPercent: 0, swapPercent: 0,
                                       load1: 0, uptimeDays: 0,
                                       temps: Temperatures(cpu: nil, gpu: nil),
-                                      topProcesses: [])
+                                      topProcesses: [], pressure: .normal)
 
     /// 纯函数：综合健康分 0–100（越高越健康）。
-    /// 三项加权扣分：CPU 30%、内存 30%、Swap 40%（Swap 打满对体验影响最大）。
+    /// 以「内存压力」为主导（macOS 真实信号），CPU 次之；
+    /// Swap 不参与扣分——Swap 高但压力正常时并非问题。
     public static func healthScore(_ m: Metrics) -> Int {
-        let penalty = Double(m.cpuPercent) * 0.30
-                    + Double(m.memPercent) * 0.30
-                    + Double(m.swapPercent) * 0.40
+        var penalty = Double(m.cpuPercent) * 0.35
+        switch m.pressure {
+        case .normal: break
+        case .warning: penalty += 25
+        case .critical: penalty += 55
+        }
         return max(0, min(100, 100 - Int(penalty.rounded())))
     }
 }
