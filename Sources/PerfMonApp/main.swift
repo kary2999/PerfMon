@@ -1,6 +1,10 @@
 import AppKit
 import SwiftUI
 
+extension Notification.Name {
+    static let showMainWindow = Notification.Name("PerfMon.showMainWindow")
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     let state = AppState()
@@ -23,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
+        window.isReleasedWhenClosed = false   // 关闭只是隐藏，便于重新打开
         content.frame = window.contentView!.bounds
         content.autoresizingMask = [.width, .height]
         window.contentView = content
@@ -36,7 +41,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         floating = FloatingWidget(state: state)
         floating?.show()
 
+        // 菜单栏面板请求"打开主窗口"
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(showMain), name: .showMainWindow, object: nil)
+
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc func showMain() {
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // 点击 Dock 图标时重新显示主窗口
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showMain() }
+        return true
     }
 }
 

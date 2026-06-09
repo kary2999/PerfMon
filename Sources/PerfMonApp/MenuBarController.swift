@@ -53,6 +53,14 @@ final class MenuBarController {
 struct MenuPanelView: View {
     @ObservedObject var state: AppState
 
+    private var pressureColor: Color {
+        switch state.metrics.pressure {
+        case .normal: return Theme.good
+        case .warning: return Theme.warm
+        case .critical: return Theme.hot
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -63,14 +71,28 @@ struct MenuPanelView: View {
                         .foregroundColor(Theme.byTemp(t))
                 }
             }
+            // 内存压力（真实健康信号，比 Swap 更重要）
+            HStack {
+                Text("内存压力").font(.system(size: 11)).foregroundColor(.secondary)
+                Spacer()
+                Text(state.metrics.pressure.label)
+                    .font(.system(size: 11, weight: .bold)).foregroundColor(pressureColor)
+            }
             bar("CPU", state.metrics.cpuPercent, Theme.byLoad(state.metrics.cpuPercent))
             bar("内存", state.metrics.memPercent, Theme.warm)
             bar("Swap", state.metrics.swapPercent, Theme.byLoad(state.metrics.swapPercent))
-            Button {
-                _ = state.boost.execute(.purgeMemory)
-            } label: {
-                Text("⚡ 一键加速").frame(maxWidth: .infinity)
-            }.buttonStyle(.borderedProminent)
+            HStack(spacing: 8) {
+                Button {
+                    _ = state.boost.execute(.purgeMemory)
+                } label: {
+                    Text("⚡ 加速").frame(maxWidth: .infinity)
+                }.buttonStyle(.borderedProminent)
+                Button {
+                    NotificationCenter.default.post(name: .showMainWindow, object: nil)
+                } label: {
+                    Text("主窗口").frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered)
+            }
         }
         .padding(14)
         .frame(width: 240)
