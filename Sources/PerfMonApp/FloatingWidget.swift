@@ -8,13 +8,15 @@ final class FloatingWidgetModel: ObservableObject {
 }
 
 /// 桌面悬浮窗：可拖动、始终置顶、半透明、可收起成小球。
+/// 尺寸已减半；同时显示 CPU 占用与温度。
 final class FloatingWidget {
     private let panel: NSPanel
     private let model = FloatingWidgetModel()
     private var cancellable: AnyCancellable?
 
-    static let fullSize = NSSize(width: 188, height: 188)
-    static let ballSize = NSSize(width: 44, height: 44)
+    // 完整面板减半（原 188 → 96），小球更小（44 → 34）。
+    static let fullSize = NSSize(width: 132, height: 96)
+    static let ballSize = NSSize(width: 38, height: 38)
 
     init(state: AppState) {
         panel = NSPanel(
@@ -35,14 +37,13 @@ final class FloatingWidget {
         host.autoresizingMask = [.width, .height]
         panel.contentView?.addSubview(host)
 
-        // 收起状态变化 → 调整面板尺寸（保持左上角不动）。
         cancellable = model.$collapsed.receive(on: RunLoop.main).sink { [weak self] collapsed in
             self?.resize(collapsed: collapsed)
         }
 
         if let screen = NSScreen.main {
             let f = screen.visibleFrame
-            panel.setFrameTopLeftPoint(NSPoint(x: f.maxX - 210, y: f.maxY - 30))
+            panel.setFrameTopLeftPoint(NSPoint(x: f.maxX - 150, y: f.maxY - 30))
         }
     }
 
@@ -57,7 +58,6 @@ final class FloatingWidget {
     func hide() { panel.orderOut(nil) }
 }
 
-/// 容器：根据收起状态切换「小球 / 完整面板」与外形（圆 / 圆角矩形）。
 struct FloatingContainer: View {
     @ObservedObject var state: AppState
     @ObservedObject var model: FloatingWidgetModel
@@ -73,78 +73,84 @@ struct FloatingContainer: View {
         }
         .clipShape(model.collapsed
                    ? AnyShape(Circle())
-                   : AnyShape(RoundedRectangle(cornerRadius: 18)))
+                   : AnyShape(RoundedRectangle(cornerRadius: 14)))
         .overlay(
-            (model.collapsed ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 18)))
+            (model.collapsed ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 14)))
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         )
         .animation(.easeInOut(duration: 0.18), value: model.collapsed)
     }
 }
 
-/// 收起后的小球：彩色环 + CPU%，点击展开。
+/// 收起后的小球：上 CPU% / 下 温度，双显。点击展开。
 struct BallView: View {
     @ObservedObject var state: AppState
     var onExpand: () -> Void
 
     var body: some View {
-        let c = Theme.byLoad(state.metrics.cpuPercent)
+        let cpuC = Theme.byLoad(state.metrics.cpuPercent)
+        let tempC = state.metrics.temps.cpu.map(Theme.byTemp) ?? .gray
         ZStack {
-            Circle().stroke(Color.white.opacity(0.15), lineWidth: 3.5)
+            Circle().stroke(Color.white.opacity(0.15), lineWidth: 3)
             Circle()
                 .trim(from: 0, to: min(1, Double(state.metrics.cpuPercent) / 100))
-                .stroke(c, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                .stroke(cpuC, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-            Text("\(state.metrics.cpuPercent)")
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .foregroundColor(c)
-                .minimumScaleFactor(0.6)
+            VStack(spacing: -1) {
+                Text("\(state.metrics.cpuPercent)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(cpuC)
+                Text(state.metrics.temps.cpu.map { "\(Int($0))°" } ?? "--")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .foregroundColor(tempC)
+            }.minimumScaleFactor(0.5)
         }
-        .padding(4)
-        .frame(width: 44, height: 44)
+        .padding(3)
+        .frame(width: 38, height: 38)
         .contentShape(Circle())
         .onTapGesture { onExpand() }
-        .help("CPU \(state.metrics.cpuPercent)% · 点击展开")
+        .help("CPU \(state.metrics.cpuPercent)% · 温度 \(state.metrics.temps.cpu.map{ "\(Int($0))°C" } ?? "不可用") · 点击展开")
     }
 }
 
-/// 完整悬浮面板（右上角有收起按钮）。
+/// 完整悬浮面板（紧凑版）：CPU 与 温度并排双显。
 struct FloatingWidgetView: View {
     @ObservedObject var state: AppState
     var onCollapse: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
-                Text("🚀").font(.system(size: 12))
-                Text("PerfMon").font(.system(size: 12, weight: .bold))
+        let cpuC = Theme.byLoad(state.metrics.cpuPercent)
+        let tempC = state.metrics.temps.cpu.map(Theme.byTemp) ?? .gray
+        VStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Text("🚀").font(.system(size: 10))
+                Text("PerfMon").font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.8))
                 Spacer()
                 Button(action: onCollapse) {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-                .buttonStyle(.plain)
-                .help("收起成小球")
+                        .font(.system(size: 11)).foregroundColor(.white.opacity(0.5))
+                }.buttonStyle(.plain).help("收起成小球")
             }
-            RingView(value: Double(state.metrics.cpuPercent), label: "CPU %",
-                     unit: "", color: Theme.byLoad(state.metrics.cpuPercent))
-            VStack(spacing: 4) {
-                row("🌡 CPU 温", state.metrics.temps.cpu.map { "\(Int($0))°C" } ?? "不可用",
-                    state.metrics.temps.cpu.map(Theme.byTemp) ?? .gray)
-                row("内存", "\(state.metrics.memPercent)%", Theme.warm)
-                row("Swap", "\(state.metrics.swapPercent)%", Theme.byLoad(state.metrics.swapPercent))
+            HStack(spacing: 10) {
+                metric(icon: "cpu", title: "CPU", value: "\(state.metrics.cpuPercent)%", color: cpuC)
+                Divider().frame(height: 30).overlay(Color.white.opacity(0.15))
+                metric(icon: "thermometer.medium", title: "温度",
+                       value: state.metrics.temps.cpu.map { "\(Int($0))°C" } ?? "不可用", color: tempC)
             }
         }
-        .padding(13)
-        .frame(width: 188, height: 188)
+        .padding(10)
+        .frame(width: 132, height: 96)
     }
 
-    private func row(_ k: String, _ v: String, _ c: Color) -> some View {
-        HStack {
-            Text(k).font(.system(size: 11)).foregroundColor(.white.opacity(0.7))
-            Spacer()
-            Text(v).font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(c)
+    private func metric(icon: String, title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 9)).foregroundColor(.white.opacity(0.5))
+                Text(title).font(.system(size: 9)).foregroundColor(.white.opacity(0.55))
+            }
+            Text(value).font(.system(size: 17, weight: .bold, design: .monospaced))
+                .foregroundColor(color).minimumScaleFactor(0.6).lineLimit(1)
         }
+        .frame(maxWidth: .infinity)
     }
 }
