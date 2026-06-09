@@ -1,13 +1,24 @@
 import AppKit
 import SwiftUI
+import Combine
 
-/// 桌面悬浮窗：可拖动、始终置顶、半透明。
+/// 悬浮窗收起状态（控制器与视图共享）。
+final class FloatingWidgetModel: ObservableObject {
+    @Published var collapsed = false
+}
+
+/// 桌面悬浮窗：可拖动、始终置顶、半透明、可收起成小球。
 final class FloatingWidget {
     private let panel: NSPanel
+    private let model = FloatingWidgetModel()
+    private var cancellable: AnyCancellable?
+
+    static let fullSize = NSSize(width: 188, height: 188)
+    static let ballSize = NSSize(width: 66, height: 66)
 
     init(state: AppState) {
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 188, height: 188),
+            contentRect: NSRect(origin: .zero, size: FloatingWidget.fullSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
         panel.isFloatingPanel = true
@@ -18,28 +29,91 @@ final class FloatingWidget {
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let root = ZStack {
-            GlassBackground(material: .hudWindow)
-            FloatingWidgetView(state: state)
-        }.clipShape(RoundedRectangle(cornerRadius: 18))
+        let root = FloatingContainer(state: state, model: model)
         let host = NSHostingView(rootView: root)
         host.frame = panel.contentView!.bounds
         host.autoresizingMask = [.width, .height]
         panel.contentView?.addSubview(host)
 
-        // 默认放右上角
+        // 收起状态变化 → 调整面板尺寸（保持左上角不动）。
+        cancellable = model.$collapsed.receive(on: RunLoop.main).sink { [weak self] collapsed in
+            self?.resize(collapsed: collapsed)
+        }
+
         if let screen = NSScreen.main {
             let f = screen.visibleFrame
             panel.setFrameTopLeftPoint(NSPoint(x: f.maxX - 210, y: f.maxY - 30))
         }
     }
 
+    private func resize(collapsed: Bool) {
+        let topLeft = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
+        let size = collapsed ? FloatingWidget.ballSize : FloatingWidget.fullSize
+        panel.setContentSize(size)
+        panel.setFrameTopLeftPoint(topLeft)
+    }
+
     func show() { panel.orderFrontRegardless() }
     func hide() { panel.orderOut(nil) }
 }
 
+/// 容器：根据收起状态切换「小球 / 完整面板」与外形（圆 / 圆角矩形）。
+struct FloatingContainer: View {
+    @ObservedObject var state: AppState
+    @ObservedObject var model: FloatingWidgetModel
+
+    var body: some View {
+        ZStack {
+            GlassBackground(material: .hudWindow)
+            if model.collapsed {
+                BallView(state: state) { model.collapsed = false }
+            } else {
+                FloatingWidgetView(state: state) { model.collapsed = true }
+            }
+        }
+        .clipShape(model.collapsed
+                   ? AnyShape(Circle())
+                   : AnyShape(RoundedRectangle(cornerRadius: 18)))
+        .overlay(
+            (model.collapsed ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 18)))
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        )
+        .animation(.easeInOut(duration: 0.18), value: model.collapsed)
+    }
+}
+
+/// 收起后的小球：彩色环 + CPU%，点击展开。
+struct BallView: View {
+    @ObservedObject var state: AppState
+    var onExpand: () -> Void
+
+    var body: some View {
+        let c = Theme.byLoad(state.metrics.cpuPercent)
+        ZStack {
+            Circle().stroke(Color.white.opacity(0.15), lineWidth: 5)
+            Circle()
+                .trim(from: 0, to: min(1, Double(state.metrics.cpuPercent) / 100))
+                .stroke(c, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            VStack(spacing: 0) {
+                Text("🚀").font(.system(size: 11))
+                Text("\(state.metrics.cpuPercent)%")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundColor(c)
+            }
+        }
+        .padding(6)
+        .frame(width: 66, height: 66)
+        .contentShape(Circle())
+        .onTapGesture { onExpand() }
+        .help("点击展开")
+    }
+}
+
+/// 完整悬浮面板（右上角有收起按钮）。
 struct FloatingWidgetView: View {
     @ObservedObject var state: AppState
+    var onCollapse: () -> Void
 
     var body: some View {
         VStack(spacing: 8) {
@@ -47,7 +121,13 @@ struct FloatingWidgetView: View {
                 Text("🚀").font(.system(size: 12))
                 Text("PerfMon").font(.system(size: 12, weight: .bold))
                 Spacer()
-                Text("置顶").font(.system(size: 9)).foregroundColor(.white.opacity(0.4))
+                Button(action: onCollapse) {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .help("收起成小球")
             }
             RingView(value: Double(state.metrics.cpuPercent), label: "CPU %",
                      unit: "", color: Theme.byLoad(state.metrics.cpuPercent))
