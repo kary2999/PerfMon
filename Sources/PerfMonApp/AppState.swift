@@ -9,7 +9,13 @@ final class AppState: ObservableObject {
     @Published var cpuTempHistory: [Double] = []
 
     private let kit = SensorKit()
+    let boost = OptimizationService()
     private var timer: Timer?
+
+    /// 结束指定进程（用于进程页）。
+    func killProcess(pid: Int) {
+        _ = boost.execute(.killProcesses, killPids: [pid])
+    }
 
     func start() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
