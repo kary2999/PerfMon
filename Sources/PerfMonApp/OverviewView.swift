@@ -13,8 +13,10 @@ struct OverviewView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
+            HStack(spacing: 6) {
                 Text("🚀 PerfMon").font(.system(size: 15, weight: .semibold))
+                Text("v\(AppInfo.version)").font(.system(size: 10))
+                    .foregroundColor(.white.opacity(0.4))
                 Spacer()
                 Text("健康分 \(Metrics.healthScore(state.metrics))")
                     .font(.system(size: 12)).foregroundColor(.white.opacity(0.7))

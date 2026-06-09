@@ -5,7 +5,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 DIST="$(pwd)/dist"
-VERSION="${1:-1.0}"
+# 版本号单一来源：从 Sources/PerfMonApp/AppInfo.swift 读取（可用第一个参数覆盖）。
+CODE_VERSION=$(grep -oE 'version = "[^"]+"' Sources/PerfMonApp/AppInfo.swift | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+VERSION="${1:-${CODE_VERSION:-1.0}}"
+echo "==> 版本号: $VERSION"
 
 echo "==> Release 编译"
 swift build -c release
