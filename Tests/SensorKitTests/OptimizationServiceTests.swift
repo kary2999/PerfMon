@@ -37,9 +37,12 @@ final class OptimizationServiceTests: XCTestCase {
         XCTAssertFalse(OptimizationService.isProtectedName("Cursor", pid: 801, selfPID: 999))
     }
 
+    // 注入确定性解析器：把每个 pid 当成普通第三方应用（非系统进程）。
+    private func appResolver(_ pid: Int) -> String { "App\(pid)" }
+
     func testKillProcessesInvokesKillPerPid() {
         let mock = MockRunner()
-        let svc = OptimizationService(runner: mock)
+        let svc = OptimizationService(runner: mock, selfPID: 999, nameResolver: appResolver)
         let r = svc.execute(.killProcesses, killPids: [100, 200])
         XCTAssertTrue(r.ok)
         XCTAssertEqual(mock.calls.count, 2)
@@ -50,7 +53,7 @@ final class OptimizationServiceTests: XCTestCase {
 
     func testKillNeverKillsSelf() {
         let mock = MockRunner()
-        let svc = OptimizationService(runner: mock, selfPID: 100)
+        let svc = OptimizationService(runner: mock, selfPID: 100, nameResolver: appResolver)
         let r = svc.execute(.killProcesses, killPids: [100, 200])  // 100 = 自身
         XCTAssertTrue(r.ok)
         XCTAssertEqual(mock.calls.count, 1)            // 只 kill 了 200
@@ -59,10 +62,21 @@ final class OptimizationServiceTests: XCTestCase {
 
     func testKillOnlySelfSkips() {
         let mock = MockRunner()
-        let svc = OptimizationService(runner: mock, selfPID: 100)
+        let svc = OptimizationService(runner: mock, selfPID: 100, nameResolver: appResolver)
         let r = svc.execute(.killProcesses, killPids: [100])       // 只有自身
         XCTAssertTrue(r.ok)
         XCTAssertEqual(mock.calls.count, 0)            // 不调用 kill
+    }
+
+    func testKillSkipsSystemProcessByName() {
+        // 解析器把 pid 555 报成 WindowServer → 受保护，绝不结束（防死机事故）
+        let mock = MockRunner()
+        let svc = OptimizationService(runner: mock, selfPID: 999,
+                                      nameResolver: { $0 == 555 ? "WindowServer" : "App\($0)" })
+        let r = svc.execute(.killProcesses, killPids: [555, 200])
+        XCTAssertTrue(r.ok)
+        XCTAssertEqual(mock.calls.count, 1)
+        XCTAssertEqual(mock.calls[0].1, ["200"])       // 只 kill 了 200，WindowServer 被拒
     }
 
     func testKillWithNoPidsSkips() {

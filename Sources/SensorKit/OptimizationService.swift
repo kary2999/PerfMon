@@ -66,9 +66,13 @@ public struct ShellRunner: CommandRunner {
 public final class OptimizationService {
     private let runner: CommandRunner
     private let selfPID: Int
-    public init(runner: CommandRunner = ShellRunner(), selfPID: Int = Int(getpid())) {
+    private let nameResolver: @Sendable (Int) -> String   // pid → 进程名（可注入，便于测试）
+    public init(runner: CommandRunner = ShellRunner(),
+                selfPID: Int = Int(getpid()),
+                nameResolver: @escaping @Sendable (Int) -> String = { OptimizationService.nameForPID($0) }) {
         self.runner = runner
         self.selfPID = selfPID
+        self.nameResolver = nameResolver
     }
 
     /// 系统关键进程：绝不结束（会导致掉登录/崩溃）。
@@ -88,7 +92,7 @@ public final class OptimizationService {
     }
 
     /// 薄层：由 pid 解析进程名（取可执行文件名）。解析失败返回空串。
-    static func nameForPID(_ pid: Int) -> String {
+    public static func nameForPID(_ pid: Int) -> String {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/ps")
         p.arguments = ["-p", "\(pid)", "-o", "comm="]
@@ -134,7 +138,7 @@ public final class OptimizationService {
             // 安全网：在最底层强制排除系统关键进程（WindowServer/kernel/com.apple.*）与自身。
             // 即使调用方误传 WindowServer 的 pid，这里也会拒杀，避免杀掉图形服务导致死机。
             let targets = killPids.filter { pid in
-                let name = Self.nameForPID(pid)
+                let name = nameResolver(pid)
                 if name.isEmpty { return false }    // 解析失败 → 宁可不杀
                 return !Self.isProtectedName(name, pid: pid, selfPID: selfPID)
             }
