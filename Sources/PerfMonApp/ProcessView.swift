@@ -8,7 +8,7 @@ struct ProcessView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("进程占用排行").font(.system(size: 14, weight: .semibold))
-            Text("按 CPU 排序 · 点击 × 结束进程（会丢失未保存内容）")
+            Text("按 CPU 排序（单核占比，多核可超 100%）· 点击 × 结束进程（会丢失未保存内容）")
                 .font(.system(size: 11)).foregroundColor(.white.opacity(0.5))
 
             ScrollView {

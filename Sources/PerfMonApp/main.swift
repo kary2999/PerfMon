@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false   // 关闭只是隐藏，便于重新打开
+        window.appearance = NSAppearance(named: .darkAqua)  // 强制深色，避免白天对比度过低
         content.frame = window.contentView!.bounds
         content.autoresizingMask = [.width, .height]
         window.contentView = content

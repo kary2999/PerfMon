@@ -3,10 +3,21 @@ import SwiftUI
 import Combine
 import SensorKit
 
+/// 一条高占用记录：某时刻某进程 CPU 超过阈值。
+struct HighCPUEntry: Identifiable {
+    let id = UUID()
+    let time: Date
+    let name: String
+    let cpu: Int          // 单核占比（ps 口径，可 >100）
+}
+
 final class AppState: ObservableObject {
     @Published var metrics: Metrics = .empty
     @Published var cpuHistory: [Double] = []
     @Published var cpuTempHistory: [Double] = []
+    @Published var highCPULog: [HighCPUEntry] = []   // CPU 超过 50% 的进程记录
+
+    private let highCPUThreshold = 50
 
     private let kit = SensorKit()
     let boost = OptimizationService()
@@ -39,6 +50,14 @@ final class AppState: ObservableObject {
         if let t = m.temps.cpu {
             cpuTempHistory.append(t)
             if cpuTempHistory.count > 60 { cpuTempHistory.removeFirst() }
+        }
+        // 记录 CPU 超过阈值的进程（仅在慢采样刷新了进程时记，避免重复）。
+        if refreshSlow {
+            let now = Date()
+            for p in m.topProcesses where p.cpuPercent >= highCPUThreshold && p.name != "PerfMon" {
+                highCPULog.insert(HighCPUEntry(time: now, name: p.name, cpu: p.cpuPercent), at: 0)
+            }
+            if highCPULog.count > 50 { highCPULog.removeLast(highCPULog.count - 50) }
         }
     }
 }

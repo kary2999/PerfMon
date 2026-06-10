@@ -4,6 +4,7 @@ import Combine
 import SensorKit
 
 /// 菜单栏常驻图标：实时显示 CPU% · 温度；点击弹出紧凑面板。
+@MainActor
 final class MenuBarController {
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
@@ -17,10 +18,13 @@ final class MenuBarController {
         statusItem.autosaveName = "PerfMonStatusItem"
         if let button = statusItem.button {
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-            button.title = "🚀 --"
+            button.image = RocketLogo(size: 16).nsImage(scale: 3)
+            button.imagePosition = .imageLeading
+            button.title = " --"
             button.target = self
             button.action = #selector(togglePopover)
         }
+        popover.appearance = NSAppearance(named: .darkAqua)
         popover.behavior = .transient
         popover.contentSize = NSSize(width: 240, height: 220)
         popover.contentViewController = NSHostingController(
@@ -35,7 +39,7 @@ final class MenuBarController {
     private func updateTitle(_ m: Metrics) {
         guard let button = statusItem.button else { return }
         let tempStr = m.temps.cpu.map { "·\(Int($0))°" } ?? ""
-        button.title = "🚀 \(m.cpuPercent)%\(tempStr)"
+        button.title = " \(m.cpuPercent)%\(tempStr)"
         button.contentTintColor = m.cpuPercent >= 80 ? NSColor.systemRed : nil
     }
 
@@ -63,8 +67,9 @@ struct MenuPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("🚀 PerfMon").font(.system(size: 13, weight: .semibold))
+            HStack(spacing: 6) {
+                RocketLogo(size: 16)
+                Text("PerfMon").font(.system(size: 13, weight: .semibold))
                 Spacer()
                 if let t = state.metrics.temps.cpu {
                     Text("\(Int(t))°C").font(.system(size: 12, weight: .bold))

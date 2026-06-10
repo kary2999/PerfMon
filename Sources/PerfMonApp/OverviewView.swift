@@ -14,7 +14,8 @@ struct OverviewView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 6) {
-                Text("🚀 PerfMon").font(.system(size: 15, weight: .semibold))
+                RocketLogo(size: 18)
+                Text("PerfMon").font(.system(size: 15, weight: .semibold))
                 Text("v\(AppInfo.version)").font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.4))
                 Spacer()

@@ -16,7 +16,7 @@ struct RootView: View {
         VStack(spacing: 0) {
             // 顶部标签栏
             HStack(spacing: 6) {
-                Text("🚀").font(.system(size: 15))
+                RocketLogo(size: 16)
                 ForEach(Tab.allCases, id: \.self) { t in
                     Text(t.rawValue)
                         .font(.system(size: 12, weight: tab == t ? .semibold : .regular))

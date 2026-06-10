@@ -29,6 +29,7 @@ final class FloatingWidget {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
+        panel.appearance = NSAppearance(named: .darkAqua)  // 强制深色，白天也清晰
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         let root = FloatingContainer(state: state, model: model)
@@ -123,7 +124,7 @@ struct FloatingWidgetView: View {
         let tempC = state.metrics.temps.cpu.map(Theme.byTemp) ?? .gray
         VStack(spacing: 6) {
             HStack(spacing: 4) {
-                Text("🚀").font(.system(size: 10))
+                RocketLogo(size: 13)
                 Text("PerfMon").font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.8))
                 Spacer()
                 Button(action: onCollapse) {
