@@ -26,6 +26,8 @@ public struct Metrics: Equatable, Sendable {
     public var memAppGB: Double
     public var memWiredGB: Double
     public var memCompressedGB: Double
+    public var swapUsedGB: Double
+    public var swapTotalGB: Double
 
     public init(cpuPercent: Int, memPercent: Int, swapPercent: Int,
                 load1: Double, uptimeDays: Int, temps: Temperatures,
@@ -33,7 +35,8 @@ public struct Metrics: Equatable, Sendable {
                 topMemProcesses: [ProcessSample] = [],
                 pressure: MemoryPressure = .normal,
                 memUsedGB: Double = 0, memTotalGB: Double = 0,
-                memAppGB: Double = 0, memWiredGB: Double = 0, memCompressedGB: Double = 0) {
+                memAppGB: Double = 0, memWiredGB: Double = 0, memCompressedGB: Double = 0,
+                swapUsedGB: Double = 0, swapTotalGB: Double = 0) {
         self.cpuPercent = cpuPercent; self.memPercent = memPercent
         self.swapPercent = swapPercent; self.load1 = load1
         self.uptimeDays = uptimeDays; self.temps = temps
@@ -42,6 +45,7 @@ public struct Metrics: Equatable, Sendable {
         self.memUsedGB = memUsedGB; self.memTotalGB = memTotalGB
         self.memAppGB = memAppGB; self.memWiredGB = memWiredGB
         self.memCompressedGB = memCompressedGB
+        self.swapUsedGB = swapUsedGB; self.swapTotalGB = swapTotalGB
     }
 
     public static let empty = Metrics(cpuPercent: 0, memPercent: 0, swapPercent: 0,

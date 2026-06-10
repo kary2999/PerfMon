@@ -38,8 +38,11 @@ public final class SensorKit {
             memAppGB = gb(mem.appBytes); memWiredGB = gb(mem.wiredBytes); memCompGB = gb(mem.compressedBytes)
         }
         var swapPct = 0
+        var swapUsedGB = 0.0, swapTotalGB = 0.0
         if let sw = swapProvider.current() {
             swapPct = Percent.ratio(used: Double(sw.usedBytes), total: Double(sw.totalBytes))
+            swapUsedGB = SwapStats.toGB(bytes: sw.usedBytes)
+            swapTotalGB = SwapStats.toGB(bytes: sw.totalBytes)
         }
         let sys = sysProvider.current()
 
@@ -56,6 +59,7 @@ public final class SensorKit {
                        topMemProcesses: cachedMemProcs,
                        pressure: pressureProvider.current(),
                        memUsedGB: memUsedGB, memTotalGB: memTotalGB,
-                       memAppGB: memAppGB, memWiredGB: memWiredGB, memCompressedGB: memCompGB)
+                       memAppGB: memAppGB, memWiredGB: memWiredGB, memCompressedGB: memCompGB,
+                       swapUsedGB: swapUsedGB, swapTotalGB: swapTotalGB)
     }
 }

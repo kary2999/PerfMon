@@ -16,6 +16,9 @@ final class AppState: ObservableObject {
     @Published var cpuHistory: [Double] = []
     @Published var cpuTempHistory: [Double] = []
     @Published var highCPULog: [HighCPUEntry] = []   // CPU 超过 50% 的进程记录
+    @Published var swapHistory: [Double] = []        // Swap 已用 GB，按慢采样记录
+    /// 慢采样间隔（秒）= 快间隔 × N，用于 Swap 增长速率计算。
+    var slowIntervalSec: Double { fastInterval * Double(slowEveryNTicks) }
 
     // 自动清理配置（持久化）。阈值可调；间隔写死 1 小时（见 AutoCleanPolicy）。
     @Published var autoCleanEnabled: Bool {
@@ -82,6 +85,9 @@ final class AppState: ObservableObject {
                 highCPULog.insert(HighCPUEntry(time: now, name: p.name, cpu: p.cpuPercent), at: 0)
             }
             if highCPULog.count > 50 { highCPULog.removeLast(highCPULog.count - 50) }
+            // Swap 增长趋势采样
+            swapHistory.append(m.swapUsedGB)
+            if swapHistory.count > 60 { swapHistory.removeFirst() }
         }
         maybeAutoClean(m)
     }
