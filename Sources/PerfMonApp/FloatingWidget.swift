@@ -87,37 +87,50 @@ struct FloatingContainer: View {
     @ObservedObject var model: FloatingWidgetModel
     var onRelease: () -> Void
 
+    private var radius: CGFloat { model.collapsed ? 19 : 14 }   // 38/2=19 → 圆
+
     var body: some View {
         ZStack {
-            GlassBackground(material: .hudWindow)
+            GlassBackground(material: .hudWindow, cornerRadius: radius)  // 毛玻璃层自带圆角，根治黑方块
             if model.collapsed {
                 BallView(state: state, onExpand: { model.collapsed = false }, onRelease: onRelease)
             } else {
                 FloatingWidgetView(state: state, onCollapse: { model.collapsed = true }, onRelease: onRelease)
             }
+            // 清理提示：保持在窗内，按状态用不同的清爽样式
+            if let h = model.hint { hintOverlay(h) }
         }
-        .clipShape(model.collapsed
-                   ? AnyShape(Circle())
-                   : AnyShape(RoundedRectangle(cornerRadius: 14)))
-        .overlay(
-            (model.collapsed ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 14)))
-                .stroke(Color.white.opacity(0.18), lineWidth: 1)
-        )
-        .overlay(alignment: .bottom) {
-            if let h = model.hint {
-                Text(h)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(Capsule().fill(Color.black.opacity(0.7)))
-                    .fixedSize()
-                    .offset(y: model.collapsed ? 16 : 0)
-                    .padding(.bottom, model.collapsed ? 0 : 6)
-                    .transition(.opacity)
+        .clipShape(RoundedRectangle(cornerRadius: radius))
+        .overlay(RoundedRectangle(cornerRadius: radius).stroke(Color.white.opacity(0.18), lineWidth: 1))
+        .animation(.easeInOut(duration: 0.18), value: model.collapsed)
+        .animation(.easeInOut(duration: 0.18), value: model.hint)
+    }
+
+    /// 窗内清理提示：收起态=中心图标，展开态=底部色条。均裁剪在窗内，无独立弹窗/方块。
+    @ViewBuilder
+    private func hintOverlay(_ h: String) -> some View {
+        let done = h.hasPrefix("✓")
+        if model.collapsed {
+            ZStack {
+                Circle().fill(Color.black.opacity(0.5))
+                Image(systemName: done ? "checkmark" : "arrow.triangle.2.circlepath")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(done ? Theme.good : .white)
+            }
+        } else {
+            VStack {
+                Spacer()
+                HStack(spacing: 5) {
+                    Image(systemName: done ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                        .font(.system(size: 10, weight: .bold))
+                    Text(done ? "已释放缓存" : "正在清理…").font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background((done ? Theme.good : Theme.cool).opacity(0.9))
             }
         }
-        .animation(.easeInOut(duration: 0.18), value: model.collapsed)
-        .animation(.easeInOut(duration: 0.15), value: model.hint)
     }
 }
 
