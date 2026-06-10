@@ -78,6 +78,29 @@ public final class OptimizationService {
         "WindowManager", "PerfMon", "backboardd", "logind"
     ]
 
+    /// 纯函数：判断某进程是否"受保护、绝不可结束"。
+    /// 系统关键进程 / com.apple.* / 自身 / pid<=1 → 受保护。
+    public static func isProtectedName(_ name: String, pid: Int, selfPID: Int) -> Bool {
+        if pid == selfPID || pid <= 1 { return true }
+        if protectedNames.contains(name) { return true }
+        if name.hasPrefix("com.apple.") { return true }
+        return false
+    }
+
+    /// 薄层：由 pid 解析进程名（取可执行文件名）。解析失败返回空串。
+    static func nameForPID(_ pid: Int) -> String {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/ps")
+        p.arguments = ["-p", "\(pid)", "-o", "comm="]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        do { try p.run() } catch { return "" }
+        let d = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        let full = String(decoding: d, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return full.isEmpty ? "" : (full as NSString).lastPathComponent
+    }
+
     /// 纯函数：从按内存排序的进程里挑出"可安全结束的大型应用"。
     /// 排除：系统关键进程、com.apple.* 系统进程、自身、低于 minMB 的进程。取前 limit 个。
     public static func killableMemoryHogs(_ procs: [ProcessSample], selfPID: Int,
@@ -96,9 +119,9 @@ public final class OptimizationService {
 
     /// 纯函数：根据当前指标，建议默认勾选的动作集合。
     public static func suggestedActions(_ m: Metrics) -> [BoostAction] {
+        // 注意：.killProcesses 不再自动勾选——结束进程会丢数据，必须由用户主动选择。
         var actions: [BoostAction] = []
         if m.swapPercent >= 50 || m.memPercent >= 80 { actions.append(.purgeMemory) }
-        if m.topProcesses.contains(where: { $0.cpuPercent >= 40 }) { actions.append(.killProcesses) }
         actions.append(.clearCaches)
         if m.cpuPercent >= 50 { actions.append(.reduceEffects) }
         return actions
@@ -108,10 +131,15 @@ public final class OptimizationService {
     public func execute(_ action: BoostAction, killPids: [Int] = []) -> BoostStepResult {
         switch action {
         case .killProcesses:
-            // 防自杀：永不结束 PerfMon 自身进程。
-            let targets = killPids.filter { $0 != selfPID }
+            // 安全网：在最底层强制排除系统关键进程（WindowServer/kernel/com.apple.*）与自身。
+            // 即使调用方误传 WindowServer 的 pid，这里也会拒杀，避免杀掉图形服务导致死机。
+            let targets = killPids.filter { pid in
+                let name = Self.nameForPID(pid)
+                if name.isEmpty { return false }    // 解析失败 → 宁可不杀
+                return !Self.isProtectedName(name, pid: pid, selfPID: selfPID)
+            }
             guard !targets.isEmpty else {
-                return BoostStepResult(action: action, ok: true, message: "无可结束的进程（已排除自身），跳过")
+                return BoostStepResult(action: action, ok: true, message: "无可安全结束的进程（已排除系统进程与自身），跳过")
             }
             var killed = 0
             for pid in targets {

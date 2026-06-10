@@ -19,9 +19,22 @@ final class OptimizationServiceTests: XCTestCase {
                           topProcesses: [ProcessSample(pid: 1, name: "X", cpuPercent: 50)])
         let actions = OptimizationService.suggestedActions(bad)
         XCTAssertTrue(actions.contains(.purgeMemory))
-        XCTAssertTrue(actions.contains(.killProcesses))
+        XCTAssertFalse(actions.contains(.killProcesses))   // 结束进程不再自动勾选（会丢数据）
         XCTAssertTrue(actions.contains(.clearCaches))
         XCTAssertTrue(actions.contains(.reduceEffects))
+    }
+
+    func testProtectedSystemProcesses() {
+        // 系统关键进程、com.apple.*、自身、pid<=1 → 受保护，绝不结束
+        XCTAssertTrue(OptimizationService.isProtectedName("WindowServer", pid: 157, selfPID: 999))
+        XCTAssertTrue(OptimizationService.isProtectedName("kernel_task", pid: 0, selfPID: 999))
+        XCTAssertTrue(OptimizationService.isProtectedName("com.apple.Virtualization.VirtualMachine", pid: 500, selfPID: 999))
+        XCTAssertTrue(OptimizationService.isProtectedName("Finder", pid: 300, selfPID: 999))
+        XCTAssertTrue(OptimizationService.isProtectedName("PerfMon", pid: 999, selfPID: 999))   // 自身
+        XCTAssertTrue(OptimizationService.isProtectedName("Anything", pid: 1, selfPID: 999))    // pid<=1
+        // 第三方应用 → 不受保护，可结束
+        XCTAssertFalse(OptimizationService.isProtectedName("Google Chrome Helper", pid: 800, selfPID: 999))
+        XCTAssertFalse(OptimizationService.isProtectedName("Cursor", pid: 801, selfPID: 999))
     }
 
     func testKillProcessesInvokesKillPerPid() {

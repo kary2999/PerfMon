@@ -114,7 +114,11 @@ struct BoostView: View {
     private func runBoost() {
         running = true
         results = []
-        let pids = state.metrics.topProcesses.prefix(2).map { $0.pid }
+        // 只把"非系统、第三方"的高 CPU 进程作为结束目标（底层 execute 还会再次拦截系统进程）。
+        let selfPID = Int(getpid())
+        let pids = state.metrics.topProcesses
+            .filter { !OptimizationService.isProtectedName($0.name, pid: $0.pid, selfPID: selfPID) }
+            .prefix(2).map { $0.pid }
         let chosen = BoostAction.allCases.filter { selected.contains($0) }
         DispatchQueue.global().async {
             var acc: [BoostStepResult] = []
