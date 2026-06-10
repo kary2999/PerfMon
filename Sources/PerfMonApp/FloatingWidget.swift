@@ -49,6 +49,14 @@ final class FloatingWidget {
             self?.resize(collapsed: collapsed)
         }
 
+        // 自动清理完成 → 窗内闪一条提示
+        NotificationCenter.default.addObserver(forName: .autoCleanDone, object: nil, queue: .main) { [model] _ in
+            model.hint = "✓ 自动清理"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                if model.hint == "✓ 自动清理" { model.hint = nil }
+            }
+        }
+
         if let screen = NSScreen.main {
             let f = screen.visibleFrame
             panel.setFrameTopLeftPoint(NSPoint(x: f.maxX - 150, y: f.maxY - 30))

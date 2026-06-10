@@ -17,12 +17,27 @@ final class AppState: ObservableObject {
     @Published var cpuTempHistory: [Double] = []
     @Published var highCPULog: [HighCPUEntry] = []   // CPU 超过 50% 的进程记录
 
+    // 自动清理配置（持久化）。阈值可调；间隔写死 1 小时（见 AutoCleanPolicy）。
+    @Published var autoCleanEnabled: Bool {
+        didSet { UserDefaults.standard.set(autoCleanEnabled, forKey: "autoCleanEnabled") }
+    }
+    @Published var autoCleanThresholdGB: Double {
+        didSet { UserDefaults.standard.set(autoCleanThresholdGB, forKey: "autoCleanThresholdGB") }
+    }
+    private var lastAutoClean: Date?
+
     private let highCPUThreshold = 50
 
     private let kit = SensorKit()
     let boost = OptimizationService()
     private var timer: Timer?
     private var tickCount = 0
+
+    init() {
+        let d = UserDefaults.standard
+        autoCleanEnabled = d.object(forKey: "autoCleanEnabled") as? Bool ?? false
+        autoCleanThresholdGB = d.object(forKey: "autoCleanThresholdGB") as? Double ?? 5.0
+    }
 
     // 采样节流：CPU/内存等轻量项每 2 秒；温度/进程等重量项每 3 个 tick（=6 秒）刷新一次。
     private let fastInterval: TimeInterval = 2.0
@@ -67,6 +82,24 @@ final class AppState: ObservableObject {
                 highCPULog.insert(HighCPUEntry(time: now, name: p.name, cpu: p.cpuPercent), at: 0)
             }
             if highCPULog.count > 50 { highCPULog.removeLast(highCPULog.count - 50) }
+        }
+        maybeAutoClean(m)
+    }
+
+    /// 自动清理：内存超阈值且距上次 ≥1 小时时，自动清缓存（非破坏性、不弹密码）。
+    private func maybeAutoClean(_ m: Metrics) {
+        let since = lastAutoClean.map { Date().timeIntervalSince($0) } ?? .greatestFiniteMagnitude
+        guard AutoCleanPolicy.shouldClean(memUsedGB: m.memUsedGB,
+                                          thresholdGB: autoCleanThresholdGB,
+                                          secondsSinceLastClean: since,
+                                          enabled: autoCleanEnabled) else { return }
+        lastAutoClean = Date()
+        DispatchQueue.global().async {
+            let svc = OptimizationService()
+            _ = svc.execute(.clearCaches)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .autoCleanDone, object: nil)
+            }
         }
     }
 }

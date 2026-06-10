@@ -18,12 +18,34 @@ struct BoostView: View {
     }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("⚡ 一键加速").font(.system(size: 14, weight: .semibold))
                 Spacer()
                 Text("勾选要执行的项").font(.system(size: 11)).foregroundColor(.white.opacity(0.5))
             }
+
+            // 自动清理配置
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: $state.autoCleanEnabled) {
+                    Text("自动清理缓存").font(.system(size: 13, weight: .medium))
+                }
+                .toggleStyle(.switch)
+                if state.autoCleanEnabled {
+                    HStack(spacing: 6) {
+                        Text("内存超过").font(.system(size: 12)).foregroundColor(.white.opacity(0.7))
+                        Stepper(value: $state.autoCleanThresholdGB, in: 2...32, step: 1) {
+                            Text("\(Int(state.autoCleanThresholdGB)) GB")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        }.fixedSize()
+                        Text("时，每小时自动清理一次").font(.system(size: 12)).foregroundColor(.white.opacity(0.7))
+                    }
+                    Text("间隔固定 1 小时（防止频繁清理），仅清缓存、不关闭应用、不弹密码。")
+                        .font(.system(size: 10)).foregroundColor(.white.opacity(0.4))
+                }
+            }
+            .padding(11).background(Color.white.opacity(0.06)).cornerRadius(11)
 
             ForEach(BoostAction.allCases, id: \.self) { action in
                 let g = gain(action)
@@ -74,7 +96,8 @@ struct BoostView: View {
             }
         }
         .padding(20)
-        .frame(width: 480, height: 360)
+        }
+        .frame(width: 480, height: 400)
         .onAppear {
             if !initialized {
                 selected = Set(OptimizationService.suggestedActions(state.metrics))

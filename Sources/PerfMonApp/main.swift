@@ -3,6 +3,7 @@ import SwiftUI
 
 extension Notification.Name {
     static let showMainWindow = Notification.Name("PerfMon.showMainWindow")
+    static let autoCleanDone = Notification.Name("PerfMon.autoCleanDone")
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
