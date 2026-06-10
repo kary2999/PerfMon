@@ -71,6 +71,29 @@ public final class OptimizationService {
         self.selfPID = selfPID
     }
 
+    /// 系统关键进程：绝不结束（会导致掉登录/崩溃）。
+    static let protectedNames: Set<String> = [
+        "WindowServer", "kernel_task", "launchd", "loginwindow", "Dock", "Finder",
+        "SystemUIServer", "ControlCenter", "Spotlight", "coreaudiod", "mds", "mds_stores",
+        "WindowManager", "PerfMon", "backboardd", "logind"
+    ]
+
+    /// 纯函数：从按内存排序的进程里挑出"可安全结束的大型应用"。
+    /// 排除：系统关键进程、com.apple.* 系统进程、自身、低于 minMB 的进程。取前 limit 个。
+    public static func killableMemoryHogs(_ procs: [ProcessSample], selfPID: Int,
+                                          limit: Int = 3, minMB: Int = 400) -> [ProcessSample] {
+        var out: [ProcessSample] = []
+        for p in procs {
+            if p.pid == selfPID { continue }
+            if p.memMB < minMB { continue }
+            if p.name.hasPrefix("com.apple.") { continue }
+            if protectedNames.contains(p.name) { continue }
+            out.append(p)
+            if out.count >= limit { break }
+        }
+        return out
+    }
+
     /// 纯函数：根据当前指标，建议默认勾选的动作集合。
     public static func suggestedActions(_ m: Metrics) -> [BoostAction] {
         var actions: [BoostAction] = []

@@ -68,6 +68,24 @@ final class OptimizationServiceTests: XCTestCase {
         XCTAssertTrue(mock.calls.first?.1.contains("reduceTransparency") ?? false)
     }
 
+    func testKillableMemoryHogsExcludesSystemAndSelf() {
+        let procs = [
+            ProcessSample(pid: 1, name: "WindowServer", cpuPercent: 5, memMB: 2000),               // 系统关键 → 排除
+            ProcessSample(pid: 2, name: "com.apple.Virtualization.VirtualMachine", cpuPercent: 5, memMB: 1500), // com.apple.* → 排除
+            ProcessSample(pid: 3, name: "Google Chrome Helper", cpuPercent: 5, memMB: 900),         // ✓
+            ProcessSample(pid: 4, name: "PerfMon", cpuPercent: 5, memMB: 800),                       // 自身名 → 排除
+            ProcessSample(pid: 5, name: "Cursor", cpuPercent: 5, memMB: 700),                        // ✓
+            ProcessSample(pid: 6, name: "Tiny", cpuPercent: 5, memMB: 100),                          // < minMB → 排除
+        ]
+        let hogs = OptimizationService.killableMemoryHogs(procs, selfPID: 999, limit: 3, minMB: 400)
+        XCTAssertEqual(hogs.map { $0.pid }, [3, 5])
+    }
+
+    func testKillableMemoryHogsExcludesSelfPID() {
+        let procs = [ProcessSample(pid: 100, name: "Chrome", cpuPercent: 5, memMB: 900)]
+        XCTAssertTrue(OptimizationService.killableMemoryHogs(procs, selfPID: 100).isEmpty)
+    }
+
     func testActionMetadata() {
         XCTAssertTrue(BoostAction.killProcesses.isRisky)
         XCTAssertTrue(BoostAction.reduceEffects.isReversible)
