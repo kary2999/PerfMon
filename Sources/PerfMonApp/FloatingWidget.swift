@@ -64,43 +64,23 @@ final class FloatingWidget {
     func show() { panel.orderFrontRegardless() }
     func hide() { panel.orderOut(nil) }
 
-    /// 双击悬浮窗触发：确认后结束占内存最多的第三方应用 + 清缓存。
+    /// 双击悬浮窗触发：非破坏性释放——清理缓存，不关闭任何应用、不弹密码。
     func confirmAndRelease() {
-        let hogs = OptimizationService.killableMemoryHogs(
-            state.metrics.topMemProcesses, selfPID: Int(getpid()), limit: 3, minMB: 400)
-
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        if hogs.isEmpty {
-            alert.messageText = "暂无可释放的大型应用"
-            alert.informativeText = "当前没有占用 ≥400MB 的第三方应用（系统进程不会被结束）。仅清理缓存。"
-            alert.addButton(withTitle: "清理缓存")
-            alert.addButton(withTitle: "取消")
-            if alert.runModal() == .alertFirstButtonReturn {
-                DispatchQueue.global().async {
-                    let svc = OptimizationService()
-                    _ = svc.execute(.clearCaches)
-                }
-            }
-            return
-        }
-        let list = hogs.map { "· \($0.name)（\(fmtMB($0.memMB))）" }.joined(separator: "\n")
-        alert.messageText = "释放内存：结束以下应用？"
-        alert.informativeText = "将优雅退出这些占内存最多的应用，并清理缓存。\n⚠️ 未保存内容会丢失。\n\n\(list)"
-        alert.addButton(withTitle: "确认释放")
-        alert.addButton(withTitle: "取消")
-        if alert.runModal() == .alertFirstButtonReturn {
-            let pids = hogs.map { $0.pid }
-            DispatchQueue.global().async {
-                let svc = OptimizationService()
-                _ = svc.execute(.killProcesses, killPids: pids)
-                _ = svc.execute(.clearCaches)
+        let before = state.metrics.memUsedGB
+        DispatchQueue.global().async {
+            let svc = OptimizationService()
+            let r = svc.execute(.clearCaches)
+            DispatchQueue.main.async {
+                let a = NSAlert()
+                a.alertStyle = .informational
+                a.messageText = r.ok ? "已释放缓存" : "清理失败"
+                a.informativeText = r.ok
+                    ? "已清理应用缓存释放空间，未关闭任何应用。\n（当前已用内存约 \(String(format: "%.1f", before)) GB；真正回收内存的 purge 需管理员密码，可在「优化」页执行。）"
+                    : "清理时出错，请稍后再试。"
+                a.addButton(withTitle: "好")
+                a.runModal()
             }
         }
-    }
-
-    private func fmtMB(_ mb: Int) -> String {
-        mb >= 1024 ? String(format: "%.1fGB", Double(mb) / 1024) : "\(mb)MB"
     }
 }
 
@@ -200,7 +180,7 @@ struct FloatingWidgetView: View {
         .frame(width: 168, height: 104)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onRelease() }
-        .help("双击释放内存：结束占内存最多的应用 + 清缓存")
+        .help("双击清理缓存释放空间（不关闭任何应用）")
     }
 
     private func metric(icon: String, title: String, value: String, color: Color) -> some View {
