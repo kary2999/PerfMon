@@ -19,6 +19,10 @@ rm -rf "$DIST"; mkdir -p "$DIST"
 APP="$DIST/PerfMon.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/PerfMon"
+
+# App 图标（若不存在则现生成）
+[ -f Resources/AppIcon.icns ] || ./tools/make-icon.sh
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -28,6 +32,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>PerfMon</string>
   <key>CFBundleIdentifier</key><string>vip.maskex.perfmon</string>
   <key>CFBundleExecutable</key><string>PerfMon</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleVersion</key><string>$VERSION</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundlePackageType</key><string>APPL</string>
