@@ -64,5 +64,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.regular)
+// accessory：不出现在 Command+Tab、不占 Dock，仅菜单栏 + 窗口（菜单栏工具惯例）
+app.setActivationPolicy(.accessory)
 app.run()

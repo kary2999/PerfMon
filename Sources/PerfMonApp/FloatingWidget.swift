@@ -6,6 +6,7 @@ import SensorKit
 /// 悬浮窗收起状态（控制器与视图共享）。
 final class FloatingWidgetModel: ObservableObject {
     @Published var collapsed = false
+    @Published var hint: String? = nil   // 双击清理时的窗内提示
 }
 
 /// 桌面悬浮窗：可拖动、始终置顶、半透明、可收起成小球。
@@ -65,20 +66,17 @@ final class FloatingWidget {
     func hide() { panel.orderOut(nil) }
 
     /// 双击悬浮窗触发：非破坏性释放——清理缓存，不关闭任何应用、不弹密码。
+    /// 反馈用窗内提示（model.hint），不弹独立窗口。
     func confirmAndRelease() {
-        let before = state.metrics.memUsedGB
-        DispatchQueue.global().async {
+        model.hint = "正在清理…"
+        DispatchQueue.global().async { [model] in
             let svc = OptimizationService()
             let r = svc.execute(.clearCaches)
             DispatchQueue.main.async {
-                let a = NSAlert()
-                a.alertStyle = .informational
-                a.messageText = r.ok ? "已释放缓存" : "清理失败"
-                a.informativeText = r.ok
-                    ? "已清理应用缓存释放空间，未关闭任何应用。\n（当前已用内存约 \(String(format: "%.1f", before)) GB；真正回收内存的 purge 需管理员密码，可在「优化」页执行。）"
-                    : "清理时出错，请稍后再试。"
-                a.addButton(withTitle: "好")
-                a.runModal()
+                model.hint = r.ok ? "✓ 已释放缓存" : "清理失败"
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    if model.hint != "正在清理…" { model.hint = nil }
+                }
             }
         }
     }
@@ -105,7 +103,21 @@ struct FloatingContainer: View {
             (model.collapsed ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: 14)))
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         )
+        .overlay(alignment: .bottom) {
+            if let h = model.hint {
+                Text(h)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Capsule().fill(Color.black.opacity(0.7)))
+                    .fixedSize()
+                    .offset(y: model.collapsed ? 16 : 0)
+                    .padding(.bottom, model.collapsed ? 0 : 6)
+                    .transition(.opacity)
+            }
+        }
         .animation(.easeInOut(duration: 0.18), value: model.collapsed)
+        .animation(.easeInOut(duration: 0.15), value: model.hint)
     }
 }
 
