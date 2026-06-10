@@ -25,6 +25,11 @@ public enum DiagnosisEngine {
     static let cpuWarning = 85
     static let procCritical = 40
     static let uptimeWarningDays = 7
+    static let memHogMB = 800        // 单个应用内存超过此值视为"大型应用"
+
+    static func fmtMem(_ mb: Int) -> String {
+        mb >= 1024 ? String(format: "%.1f GB", Double(mb) / 1024) : "\(mb) MB"
+    }
 
     public static func analyze(_ m: Metrics) -> [Issue] {
         var issues: [Issue] = []
@@ -68,6 +73,20 @@ public enum DiagnosisEngine {
                 code: "cpu_high", severity: .warning,
                 title: "CPU 总占用偏高（\(m.cpuPercent)%）",
                 detail: "整体负载高，可能持续发热。检查进程页找出占用来源。",
+                suggestedAction: nil))
+        }
+
+        // 大型应用内存偏高（常见于 Electron / 浏览器类）：提示可重启释放。
+        if let hog = m.topMemProcesses.first(where: { $0.memMB >= memHogMB }) {
+            let normal = (m.pressure == .normal)
+            issues.append(Issue(
+                code: "mem_hog_\(hog.pid)",
+                severity: normal ? .info : .warning,
+                title: "\(hog.name) 占用内存 \(fmtMem(hog.memMB))",
+                detail: "大型应用（常见于 Electron / 浏览器 / AI 助手类）。"
+                    + (normal
+                       ? "当前内存压力正常，无需处理；日后变卡时可重启该应用释放。"
+                       : "内存偏紧，建议重启该应用以释放内存。"),
                 suggestedAction: nil))
         }
 

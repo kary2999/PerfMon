@@ -43,6 +43,29 @@ final class DiagnosisEngineTests: XCTestCase {
         XCTAssertTrue(issues.contains { $0.code == "uptime_high" && $0.severity == .info })
     }
 
+    func testMemHogInfoWhenPressureNormal() {
+        let m = Metrics(cpuPercent: 10, memPercent: 60, swapPercent: 0,
+                        load1: 1, uptimeDays: 1,
+                        temps: Temperatures(cpu: 50, gpu: nil), topProcesses: [],
+                        topMemProcesses: [ProcessSample(pid: 99, name: "Claude", cpuPercent: 3, memMB: 1500)],
+                        pressure: .normal)
+        let issues = DiagnosisEngine.analyze(m)
+        let hog = issues.first { $0.code == "mem_hog_99" }
+        XCTAssertNotNil(hog)
+        XCTAssertEqual(hog?.severity, .info)              // 压力正常 → info
+        XCTAssertTrue(hog?.title.contains("1.5 GB") ?? false)
+    }
+
+    func testMemHogWarningWhenPressureTight() {
+        let m = Metrics(cpuPercent: 10, memPercent: 90, swapPercent: 0,
+                        load1: 1, uptimeDays: 1,
+                        temps: Temperatures(cpu: 50, gpu: nil), topProcesses: [],
+                        topMemProcesses: [ProcessSample(pid: 99, name: "Chrome", cpuPercent: 3, memMB: 1200)],
+                        pressure: .warning)
+        let issues = DiagnosisEngine.analyze(m)
+        XCTAssertTrue(issues.contains { $0.code == "mem_hog_99" && $0.severity == .warning })
+    }
+
     func testHealthySystemNoCritical() {
         let m = Metrics(cpuPercent: 8, memPercent: 40, swapPercent: 0,
                         load1: 1, uptimeDays: 1,
