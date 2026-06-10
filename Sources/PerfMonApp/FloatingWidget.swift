@@ -15,7 +15,7 @@ final class FloatingWidget {
     private var cancellable: AnyCancellable?
 
     // 完整面板减半（原 188 → 96），小球更小（44 → 34）。
-    static let fullSize = NSSize(width: 132, height: 96)
+    static let fullSize = NSSize(width: 168, height: 104)
     static let ballSize = NSSize(width: 38, height: 38)
 
     init(state: AppState) {
@@ -132,15 +132,23 @@ struct FloatingWidgetView: View {
                         .font(.system(size: 11)).foregroundColor(.white.opacity(0.5))
                 }.buttonStyle(.plain).help("收起成小球")
             }
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 metric(icon: "cpu", title: "CPU", value: "\(state.metrics.cpuPercent)%", color: cpuC)
-                Divider().frame(height: 30).overlay(Color.white.opacity(0.15))
+                Divider().frame(height: 28).overlay(Color.white.opacity(0.15))
                 metric(icon: "thermometer.medium", title: "温度",
-                       value: state.metrics.temps.cpu.map { "\(Int($0))°C" } ?? "不可用", color: tempC)
+                       value: state.metrics.temps.cpu.map { "\(Int($0))°" } ?? "—", color: tempC)
+                Divider().frame(height: 28).overlay(Color.white.opacity(0.15))
+                metric(icon: "memorychip", title: "内存",
+                       value: "\(state.metrics.memPercent)%", color: Theme.warm)
             }
+            // 内存用量（GB）细节
+            Text(String(format: "内存 %.1f/%.1f GB · 压力%@",
+                        state.metrics.memUsedGB, state.metrics.memTotalGB, state.metrics.pressure.label))
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundColor(.white.opacity(0.5))
         }
         .padding(10)
-        .frame(width: 132, height: 96)
+        .frame(width: 168, height: 104)
     }
 
     private func metric(icon: String, title: String, value: String, color: Color) -> some View {
@@ -149,7 +157,7 @@ struct FloatingWidgetView: View {
                 Image(systemName: icon).font(.system(size: 9)).foregroundColor(.white.opacity(0.5))
                 Text(title).font(.system(size: 9)).foregroundColor(.white.opacity(0.55))
             }
-            Text(value).font(.system(size: 17, weight: .bold, design: .monospaced))
+            Text(value).font(.system(size: 14, weight: .bold, design: .monospaced))
                 .foregroundColor(color).minimumScaleFactor(0.6).lineLimit(1)
         }
         .frame(maxWidth: .infinity)

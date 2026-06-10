@@ -3,9 +3,10 @@ import Foundation
 public struct ProcessSample: Equatable, Sendable {
     public var pid: Int
     public var name: String
-    public var cpuPercent: Int
-    public init(pid: Int, name: String, cpuPercent: Int) {
-        self.pid = pid; self.name = name; self.cpuPercent = cpuPercent
+    public var cpuPercent: Int      // 单核占比（ps 口径，可 >100）
+    public var memMB: Int           // 物理内存占用 RSS（MB）
+    public init(pid: Int, name: String, cpuPercent: Int, memMB: Int = 0) {
+        self.pid = pid; self.name = name; self.cpuPercent = cpuPercent; self.memMB = memMB
     }
 }
 
@@ -16,7 +17,8 @@ public struct Metrics: Equatable, Sendable {
     public var load1: Double
     public var uptimeDays: Int
     public var temps: Temperatures
-    public var topProcesses: [ProcessSample]
+    public var topProcesses: [ProcessSample]       // 按 CPU 排序
+    public var topMemProcesses: [ProcessSample]    // 按内存排序
     public var pressure: MemoryPressure
     // 内存明细（GB），用于详情展示
     public var memUsedGB: Double
@@ -28,13 +30,15 @@ public struct Metrics: Equatable, Sendable {
     public init(cpuPercent: Int, memPercent: Int, swapPercent: Int,
                 load1: Double, uptimeDays: Int, temps: Temperatures,
                 topProcesses: [ProcessSample],
+                topMemProcesses: [ProcessSample] = [],
                 pressure: MemoryPressure = .normal,
                 memUsedGB: Double = 0, memTotalGB: Double = 0,
                 memAppGB: Double = 0, memWiredGB: Double = 0, memCompressedGB: Double = 0) {
         self.cpuPercent = cpuPercent; self.memPercent = memPercent
         self.swapPercent = swapPercent; self.load1 = load1
         self.uptimeDays = uptimeDays; self.temps = temps
-        self.topProcesses = topProcesses; self.pressure = pressure
+        self.topProcesses = topProcesses; self.topMemProcesses = topMemProcesses
+        self.pressure = pressure
         self.memUsedGB = memUsedGB; self.memTotalGB = memTotalGB
         self.memAppGB = memAppGB; self.memWiredGB = memWiredGB
         self.memCompressedGB = memCompressedGB

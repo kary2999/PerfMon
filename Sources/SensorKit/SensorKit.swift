@@ -17,6 +17,7 @@ public final class SensorKit {
     // 慢采样缓存
     private var cachedTemps = Temperatures(cpu: nil, gpu: nil)
     private var cachedProcs: [ProcessSample] = []
+    private var cachedMemProcs: [ProcessSample] = []
 
     public init() {
         lastTicks = cpuProvider.currentTicks()   // 预热一帧
@@ -45,12 +46,14 @@ public final class SensorKit {
         // 慢采样：温度 + 进程，仅在需要时刷新，否则复用缓存。
         if refreshSlow {
             cachedTemps = TempClassifier.classify(tempReader.readAll())
-            cachedProcs = procProvider.top(limit: 8)
+            cachedProcs = procProvider.top(limit: 8, by: .cpu)
+            cachedMemProcs = procProvider.top(limit: 8, by: .memory)
         }
 
         return Metrics(cpuPercent: cpu, memPercent: memPct, swapPercent: swapPct,
                        load1: sys.load1, uptimeDays: sys.uptimeDays,
                        temps: cachedTemps, topProcesses: cachedProcs,
+                       topMemProcesses: cachedMemProcs,
                        pressure: pressureProvider.current(),
                        memUsedGB: memUsedGB, memTotalGB: memTotalGB,
                        memAppGB: memAppGB, memWiredGB: memWiredGB, memCompressedGB: memCompGB)
