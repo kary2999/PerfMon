@@ -33,6 +33,15 @@ final class AppState: ObservableObject {
         _ = boost.execute(.killProcesses, killPids: [pid])
     }
 
+    /// 快速加速：仅执行「免密」动作（清缓存 + 降图形负载），不触发管理员授权弹窗。
+    /// 需要密码的 purge 留在「优化」页作为可选项。
+    func quickBoost() {
+        DispatchQueue.global().async { [boost] in
+            _ = boost.execute(.clearCaches)
+            _ = boost.execute(.reduceEffects)
+        }
+    }
+
     func start() {
         timer = Timer.scheduledTimer(withTimeInterval: fastInterval, repeats: true) { [weak self] _ in
             self?.tick()

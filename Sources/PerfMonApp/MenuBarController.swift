@@ -88,7 +88,7 @@ struct MenuPanelView: View {
             bar("Swap", state.metrics.swapPercent, Theme.byLoad(state.metrics.swapPercent))
             HStack(spacing: 8) {
                 Button {
-                    _ = state.boost.execute(.purgeMemory)
+                    state.quickBoost()   // 仅免密动作：清缓存 + 降特效，不弹授权
                 } label: {
                     Text("⚡ 加速").frame(maxWidth: .infinity)
                 }.buttonStyle(.borderedProminent)
@@ -98,6 +98,11 @@ struct MenuPanelView: View {
                     Text("主窗口").frame(maxWidth: .infinity)
                 }.buttonStyle(.bordered)
             }
+            Button(role: .destructive) {
+                NSApp.terminate(nil)
+            } label: {
+                Text("退出 PerfMon").frame(maxWidth: .infinity)
+            }.buttonStyle(.bordered)
         }
         .padding(14)
         .frame(width: 240)

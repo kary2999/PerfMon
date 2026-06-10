@@ -18,15 +18,26 @@ public struct Metrics: Equatable, Sendable {
     public var temps: Temperatures
     public var topProcesses: [ProcessSample]
     public var pressure: MemoryPressure
+    // 内存明细（GB），用于详情展示
+    public var memUsedGB: Double
+    public var memTotalGB: Double
+    public var memAppGB: Double
+    public var memWiredGB: Double
+    public var memCompressedGB: Double
 
     public init(cpuPercent: Int, memPercent: Int, swapPercent: Int,
                 load1: Double, uptimeDays: Int, temps: Temperatures,
                 topProcesses: [ProcessSample],
-                pressure: MemoryPressure = .normal) {
+                pressure: MemoryPressure = .normal,
+                memUsedGB: Double = 0, memTotalGB: Double = 0,
+                memAppGB: Double = 0, memWiredGB: Double = 0, memCompressedGB: Double = 0) {
         self.cpuPercent = cpuPercent; self.memPercent = memPercent
         self.swapPercent = swapPercent; self.load1 = load1
         self.uptimeDays = uptimeDays; self.temps = temps
         self.topProcesses = topProcesses; self.pressure = pressure
+        self.memUsedGB = memUsedGB; self.memTotalGB = memTotalGB
+        self.memAppGB = memAppGB; self.memWiredGB = memWiredGB
+        self.memCompressedGB = memCompressedGB
     }
 
     public static let empty = Metrics(cpuPercent: 0, memPercent: 0, swapPercent: 0,

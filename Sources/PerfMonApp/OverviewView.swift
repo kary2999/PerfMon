@@ -29,7 +29,22 @@ struct OverviewView: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text("CPU 负载趋势 · 最近 60s").font(.system(size: 11)).foregroundColor(.white.opacity(0.55))
-                SparklineView(points: state.cpuHistory, color: cpuColor).frame(height: 60)
+                SparklineView(points: state.cpuHistory, color: cpuColor).frame(height: 44)
+            }.padding(12).background(Color.white.opacity(0.07)).cornerRadius(12)
+
+            // 内存占用详情
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("内存占用详情").font(.system(size: 11)).foregroundColor(.white.opacity(0.55))
+                    Spacer()
+                    Text(String(format: "%.1f / %.1f GB", state.metrics.memUsedGB, state.metrics.memTotalGB))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                }
+                HStack(spacing: 14) {
+                    memItem("应用", state.metrics.memAppGB, Theme.cool)
+                    memItem("系统驻留", state.metrics.memWiredGB, Theme.warm)
+                    memItem("压缩", state.metrics.memCompressedGB, Theme.hot)
+                }
             }.padding(12).background(Color.white.opacity(0.07)).cornerRadius(12)
             HStack(spacing: 18) {
                 stat("内存压力", state.metrics.pressure.label, pressureColor)
@@ -40,7 +55,7 @@ struct OverviewView: View {
             }
         }
         .padding(20)
-        .frame(width: 480, height: 360)
+        .frame(width: 480, height: 400)
     }
 
     private var pressureColor: Color {
@@ -48,6 +63,14 @@ struct OverviewView: View {
         case .normal: return Theme.good
         case .warning: return Theme.warm
         case .critical: return Theme.hot
+        }
+    }
+
+    private func memItem(_ k: String, _ gb: Double, _ c: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(c).frame(width: 7, height: 7)
+            Text(k).font(.system(size: 11)).foregroundColor(.white.opacity(0.6))
+            Text(String(format: "%.1fG", gb)).font(.system(size: 11, weight: .semibold, design: .monospaced))
         }
     }
 

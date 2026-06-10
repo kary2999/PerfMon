@@ -41,6 +41,6 @@ struct RootView: View {
                 }
             }
         }
-        .frame(width: 480, height: 408)
+        .frame(width: 480, height: 440)
     }
 }

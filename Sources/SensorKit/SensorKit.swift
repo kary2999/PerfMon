@@ -29,8 +29,12 @@ public final class SensorKit {
             lastTicks = cur
         }
         var memPct = 0
+        var memUsedGB = 0.0, memTotalGB = 0.0, memAppGB = 0.0, memWiredGB = 0.0, memCompGB = 0.0
         if let mem = memProvider.current() {
             memPct = Percent.ratio(used: Double(mem.usedBytes), total: Double(mem.totalBytes))
+            let gb = { (b: UInt64) in (Double(b) / 1_073_741_824.0 * 10).rounded() / 10 }
+            memUsedGB = gb(mem.usedBytes); memTotalGB = gb(mem.totalBytes)
+            memAppGB = gb(mem.appBytes); memWiredGB = gb(mem.wiredBytes); memCompGB = gb(mem.compressedBytes)
         }
         var swapPct = 0
         if let sw = swapProvider.current() {
@@ -47,6 +51,8 @@ public final class SensorKit {
         return Metrics(cpuPercent: cpu, memPercent: memPct, swapPercent: swapPct,
                        load1: sys.load1, uptimeDays: sys.uptimeDays,
                        temps: cachedTemps, topProcesses: cachedProcs,
-                       pressure: pressureProvider.current())
+                       pressure: pressureProvider.current(),
+                       memUsedGB: memUsedGB, memTotalGB: memTotalGB,
+                       memAppGB: memAppGB, memWiredGB: memWiredGB, memCompressedGB: memCompGB)
     }
 }

@@ -4,6 +4,18 @@ import Darwin
 public struct MemoryInfo: Equatable {
     public var usedBytes: UInt64
     public var totalBytes: UInt64
+    public var appBytes: UInt64        // 活跃应用占用（active）
+    public var wiredBytes: UInt64      // 系统驻留（wired）
+    public var compressedBytes: UInt64 // 压缩内存
+    public var freeBytes: UInt64       // 空闲 + 不活跃（可回收）
+
+    public init(usedBytes: UInt64, totalBytes: UInt64,
+                appBytes: UInt64 = 0, wiredBytes: UInt64 = 0,
+                compressedBytes: UInt64 = 0, freeBytes: UInt64 = 0) {
+        self.usedBytes = usedBytes; self.totalBytes = totalBytes
+        self.appBytes = appBytes; self.wiredBytes = wiredBytes
+        self.compressedBytes = compressedBytes; self.freeBytes = freeBytes
+    }
 }
 
 /// 薄层：host_statistics64 取页统计 + hw.memsize 取总内存。
@@ -27,10 +39,14 @@ public struct MemoryProvider {
         guard kr == KERN_SUCCESS else { return nil }
 
         let pageSize = UInt64(vm_kernel_page_size)
+        let app = UInt64(stats.active_count) * pageSize
+        let wired = UInt64(stats.wire_count) * pageSize
+        let compressed = UInt64(stats.compressor_page_count) * pageSize
+        let free = (UInt64(stats.free_count) + UInt64(stats.inactive_count)) * pageSize
         // “已用”= active + wired + compressed（inactive/free 视为可回收）
-        let used = (UInt64(stats.active_count)
-                    + UInt64(stats.wire_count)
-                    + UInt64(stats.compressor_page_count)) * pageSize
-        return MemoryInfo(usedBytes: used, totalBytes: total)
+        let used = app + wired + compressed
+        return MemoryInfo(usedBytes: used, totalBytes: total,
+                          appBytes: app, wiredBytes: wired,
+                          compressedBytes: compressed, freeBytes: free)
     }
 }
