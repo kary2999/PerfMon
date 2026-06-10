@@ -12,6 +12,7 @@ struct OverviewView: View {
     }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 6) {
                 RocketLogo(size: 18)
@@ -45,6 +46,21 @@ struct OverviewView: View {
                     memItem("系统驻留", state.metrics.memWiredGB, Theme.warm)
                     memItem("压缩", state.metrics.memCompressedGB, Theme.hot)
                 }
+                Divider().background(Color.white.opacity(0.08)).padding(.vertical, 2)
+                Text("占用最多的应用").font(.system(size: 10)).foregroundColor(.white.opacity(0.45))
+                ForEach(state.metrics.topMemProcesses.prefix(5), id: \.pid) { p in
+                    HStack(spacing: 8) {
+                        Circle().fill(Theme.warm).frame(width: 6, height: 6)
+                        Text(p.name).font(.system(size: 12)).lineLimit(1)
+                        Spacer()
+                        Text(fmtMem(p.memMB))
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.85))
+                    }
+                }
+                if state.metrics.topMemProcesses.isEmpty {
+                    Text("采样中…").font(.system(size: 11)).foregroundColor(.white.opacity(0.4))
+                }
             }.padding(12).background(Color.white.opacity(0.07)).cornerRadius(12)
             HStack(spacing: 18) {
                 stat("内存压力", state.metrics.pressure.label, pressureColor)
@@ -55,6 +71,7 @@ struct OverviewView: View {
             }
         }
         .padding(20)
+        }
         .frame(width: 480, height: 400)
     }
 
@@ -64,6 +81,10 @@ struct OverviewView: View {
         case .warning: return Theme.warm
         case .critical: return Theme.hot
         }
+    }
+
+    private func fmtMem(_ mb: Int) -> String {
+        mb >= 1024 ? String(format: "%.1fG", Double(mb) / 1024) : "\(mb)M"
     }
 
     private func memItem(_ k: String, _ gb: Double, _ c: Color) -> some View {
