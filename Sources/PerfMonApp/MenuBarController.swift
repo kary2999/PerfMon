@@ -98,11 +98,18 @@ struct MenuPanelView: View {
                     Text("主窗口").frame(maxWidth: .infinity)
                 }.buttonStyle(.bordered)
             }
-            Button(role: .destructive) {
-                NSApp.terminate(nil)
-            } label: {
-                Text("退出 PerfMon").frame(maxWidth: .infinity)
-            }.buttonStyle(.bordered)
+            HStack(spacing: 8) {
+                Button {
+                    Updater.check(silent: false)
+                } label: {
+                    Text("检查更新").frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered)
+                Button(role: .destructive) {
+                    NSApp.terminate(nil)
+                } label: {
+                    Text("退出").frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered)
+            }
         }
         .padding(14)
         .frame(width: 240)

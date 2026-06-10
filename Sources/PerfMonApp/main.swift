@@ -48,6 +48,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self, selector: #selector(showMain), name: .showMainWindow, object: nil)
 
         NSApp.activate(ignoringOtherApps: true)
+
+        // 启动 5 秒后静默检查更新（有新版才弹窗）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            Updater.check(silent: true)
+        }
     }
 
     @objc func showMain() {
