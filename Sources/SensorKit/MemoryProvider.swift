@@ -39,11 +39,16 @@ public struct MemoryProvider {
         guard kr == KERN_SUCCESS else { return nil }
 
         let pageSize = UInt64(vm_kernel_page_size)
-        let app = UInt64(stats.active_count) * pageSize
+        // 与「活动监视器」一致的口径：
+        //   App 内存 = internal_page_count − purgeable_count（匿名内存，不含文件缓存）
+        //   已用     = App 内存 + 系统驻留(wired) + 压缩(compressed)
+        //   可用     = free + 文件缓存(external) + 可清除(purgeable)
+        let internalPages = UInt64(stats.internal_page_count)
+        let purgeable = UInt64(stats.purgeable_count)
+        let app = (internalPages > purgeable ? internalPages - purgeable : 0) * pageSize
         let wired = UInt64(stats.wire_count) * pageSize
         let compressed = UInt64(stats.compressor_page_count) * pageSize
-        let free = (UInt64(stats.free_count) + UInt64(stats.inactive_count)) * pageSize
-        // “已用”= active + wired + compressed（inactive/free 视为可回收）
+        let free = (UInt64(stats.free_count) + UInt64(stats.external_page_count) + purgeable) * pageSize
         let used = app + wired + compressed
         return MemoryInfo(usedBytes: used, totalBytes: total,
                           appBytes: app, wiredBytes: wired,
