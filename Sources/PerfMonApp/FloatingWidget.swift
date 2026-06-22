@@ -73,20 +73,33 @@ final class FloatingWidget {
     func show() { panel.orderFrontRegardless() }
     func hide() { panel.orderOut(nil) }
 
-    /// 双击悬浮窗触发：非破坏性释放——清理缓存，不关闭任何应用、不弹密码。
-    /// 反馈用窗内提示（model.hint），不弹独立窗口。
+    private var releaseWindow: NSWindow?
+
+    /// 双击悬浮窗触发：打开「选择性释放内存」面板——列出可关闭的第三方应用，用户勾选后释放。
     func confirmAndRelease() {
-        model.hint = "正在清理…"
-        DispatchQueue.global().async { [model] in
-            let svc = OptimizationService()
-            let r = svc.execute(.clearCaches)
-            DispatchQueue.main.async {
-                model.hint = r.ok ? "✓ 已释放缓存" : "清理失败"
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    if model.hint != "正在清理…" { model.hint = nil }
-                }
-            }
+        if let w = releaseWindow {
+            w.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return
         }
+        let root = ZStack {
+            GlassBackground()
+            ReleaseMemoryView(state: state, onClose: { [weak self] in
+                self?.releaseWindow?.close(); self?.releaseWindow = nil
+            })
+        }
+        let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 440),
+                           styleMask: [.titled, .closable, .fullSizeContentView],
+                           backing: .buffered, defer: false)
+        win.title = "释放内存"
+        win.titlebarAppearsTransparent = true
+        win.titleVisibility = .hidden
+        win.isMovableByWindowBackground = true
+        win.isReleasedWhenClosed = false
+        win.appearance = NSAppearance(named: .darkAqua)
+        win.contentView = NSHostingView(rootView: root)
+        win.center()
+        win.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        releaseWindow = win
     }
 }
 
@@ -204,7 +217,7 @@ struct FloatingWidgetView: View {
                        value: "\(state.metrics.memPercent)%", color: Theme.warm)
             }
             // 内存用量（GB）细节
-            Text(String(format: "内存 %.1f/%.1f GB · 双击释放",
+            Text(String(format: "内存 %.1f/%.1f GB · 双击选择性释放",
                         state.metrics.memUsedGB, state.metrics.memTotalGB))
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundColor(.white.opacity(0.5))
